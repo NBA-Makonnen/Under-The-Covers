@@ -1,6 +1,6 @@
 # Under The Covers
 
-A book-discovery and recommendation site — see what's popular right now, filter by genre/year/author, get recommendations based on what you like, and find where to get a book you're interested in.
+A book-discovery and recommendation site for my personal use to see what's popular right now... it can filter by genre/year/author, get recommendations based on what one likes, and find where to get a book one is interested in.
 
 ## Stack
 
