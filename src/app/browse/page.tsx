@@ -1,4 +1,7 @@
 import { searchBooks } from "@/lib/openlibrary";
+import { BookCard } from "@/components/BookCard";
+import { BrowseSubjectTracker } from "@/components/BrowseSubjectTracker";
+import { fromBookResult } from "@/lib/types";
 
 export default async function Browse({
   searchParams,
@@ -18,6 +21,7 @@ export default async function Browse({
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-16">
+      <BrowseSubjectTracker subject={subject} />
       <h1 className="text-3xl font-semibold tracking-tight">Browse</h1>
 
       <form className="mt-8 flex w-full max-w-2xl flex-wrap gap-3" method="GET">
@@ -65,25 +69,7 @@ export default async function Browse({
 
       <ul className="mt-12 grid w-full max-w-4xl grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3">
         {books.map((book) => (
-          <li key={book.key} className="flex flex-col gap-2">
-            {book.coverUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={book.coverUrl}
-                alt={`Cover of ${book.title}`}
-                className="aspect-[2/3] w-full rounded object-cover"
-              />
-            ) : (
-              <div className="flex aspect-[2/3] w-full items-center justify-center rounded bg-zinc-200 text-sm text-zinc-500 dark:bg-zinc-800">
-                No cover
-              </div>
-            )}
-            <h2 className="font-medium">{book.title}</h2>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              {book.author}
-              {book.firstPublishYear ? ` · ${book.firstPublishYear}` : ""}
-            </p>
-          </li>
+          <BookCard key={book.key} book={fromBookResult(book)} />
         ))}
       </ul>
     </main>

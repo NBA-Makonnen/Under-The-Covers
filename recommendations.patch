@@ -1,0 +1,594 @@
+diff --git a/src/app/api/recommendations/route.ts b/src/app/api/recommendations/route.ts
+new file mode 100644
+index 0000000..5bd9b35
+--- /dev/null
++++ b/src/app/api/recommendations/route.ts
+@@ -0,0 +1,51 @@
++import { NextRequest, NextResponse } from "next/server";
++import { searchBooks } from "@/lib/openlibrary";
++
++function pickTopSubject(subjects: string[]): string | null {
++  const counts = new Map<string, number>();
++
++  for (const raw of subjects) {
++    const key = raw.trim().toLowerCase();
++    if (!key) continue;
++    counts.set(key, (counts.get(key) ?? 0) + 1);
++  }
++
++  let top: string | null = null;
++  let topCount = 0;
++  for (const [key, count] of counts) {
++    if (count > topCount) {
++      top = key;
++      topCount = count;
++    }
++  }
++
++  return top;
++}
++
++export async function GET(request: NextRequest) {
++  const { searchParams } = new URL(request.url);
++  const subjectsParam = searchParams.get("subjects") ?? "";
++  const excludeParam = searchParams.get("exclude") ?? "";
++
++  const subjects = subjectsParam
++    .split(",")
++    .map((s) => s.trim())
++    .filter(Boolean);
++  const exclude = new Set(
++    excludeParam
++      .split(",")
++      .map((s) => s.trim())
++      .filter(Boolean)
++  );
++
++  const topSubject = pickTopSubject(subjects);
++
++  if (!topSubject) {
++    return NextResponse.json({ subject: null, books: [] });
++  }
++
++  const results = await searchBooks({ subject: topSubject });
++  const books = results.filter((book) => !exclude.has(book.key));
++
++  return NextResponse.json({ subject: topSubject, books });
++}
+diff --git a/src/app/browse/page.tsx b/src/app/browse/page.tsx
+index 197830e..a889f69 100644
+--- a/src/app/browse/page.tsx
++++ b/src/app/browse/page.tsx
+@@ -1,4 +1,7 @@
+ import { searchBooks } from "@/lib/openlibrary";
++import { BookCard } from "@/components/BookCard";
++import { BrowseSubjectTracker } from "@/components/BrowseSubjectTracker";
++import { fromBookResult } from "@/lib/types";
+ 
+ export default async function Browse({
+   searchParams,
+@@ -18,6 +21,7 @@ export default async function Browse({
+ 
+   return (
+     <main className="flex flex-1 flex-col items-center px-6 py-16">
++      <BrowseSubjectTracker subject={subject} />
+       <h1 className="text-3xl font-semibold tracking-tight">Browse</h1>
+ 
+       <form className="mt-8 flex w-full max-w-2xl flex-wrap gap-3" method="GET">
+@@ -65,27 +69,9 @@ export default async function Browse({
+ 
+       <ul className="mt-12 grid w-full max-w-4xl grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3">
+         {books.map((book) => (
+-          <li key={book.key} className="flex flex-col gap-2">
+-            {book.coverUrl ? (
+-              // eslint-disable-next-line @next/next/no-img-element
+-              <img
+-                src={book.coverUrl}
+-                alt={`Cover of ${book.title}`}
+-                className="aspect-[2/3] w-full rounded object-cover"
+-              />
+-            ) : (
+-              <div className="flex aspect-[2/3] w-full items-center justify-center rounded bg-zinc-200 text-sm text-zinc-500 dark:bg-zinc-800">
+-                No cover
+-              </div>
+-            )}
+-            <h2 className="font-medium">{book.title}</h2>
+-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+-              {book.author}
+-              {book.firstPublishYear ? ` · ${book.firstPublishYear}` : ""}
+-            </p>
+-          </li>
++          <BookCard key={book.key} book={fromBookResult(book)} />
+         ))}
+       </ul>
+     </main>
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/src/app/page.tsx b/src/app/page.tsx
+index 564d62a..be19f03 100644
+--- a/src/app/page.tsx
++++ b/src/app/page.tsx
+@@ -1,4 +1,6 @@
+ import { getBestsellers } from "@/lib/nyt";
++import { BookCard } from "@/components/BookCard";
++import { fromBestseller } from "@/lib/types";
+ 
+ export default async function Home() {
+   const books = await getBestsellers();
+@@ -16,20 +18,9 @@ export default async function Home() {
+ 
+       <ul className="mt-12 grid w-full max-w-4xl grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3">
+         {books.map((book) => (
+-          <li key={book.rank} className="flex flex-col gap-2">
+-            {/* eslint-disable-next-line @next/next/no-img-element */}
+-            <img
+-              src={book.coverImage}
+-              alt={`Cover of ${book.title}`}
+-              className="aspect-[2/3] w-full rounded object-cover"
+-            />
+-            <h2 className="font-medium">{book.title}</h2>
+-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+-              {book.author}
+-            </p>
+-          </li>
++          <BookCard key={book.rank} book={fromBestseller(book)} />
+         ))}
+       </ul>
+     </main>
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/src/app/recommendations/page.tsx b/src/app/recommendations/page.tsx
+new file mode 100644
+index 0000000..705a37f
+--- /dev/null
++++ b/src/app/recommendations/page.tsx
+@@ -0,0 +1,99 @@
++"use client";
++
++import { useEffect, useState } from "react";
++import { BookCard } from "@/components/BookCard";
++import { useLikedBooks } from "@/lib/likes";
++import { useSearchedSubjects } from "@/lib/interests";
++import { fromBookResult } from "@/lib/types";
++import type { BookResult } from "@/lib/openlibrary";
++
++export default function RecommendationsPage() {
++  const { likedBooks } = useLikedBooks();
++  const searchedSubjects = useSearchedSubjects();
++  const [books, setBooks] = useState<BookResult[]>([]);
++  const [subject, setSubject] = useState<string | null>(null);
++  const [loading, setLoading] = useState(false);
++
++  const likedSubjects = likedBooks.flatMap((b) => b.subjects ?? []);
++  const allSubjects = [...likedSubjects, ...searchedSubjects];
++  const hasSignal = allSubjects.length > 0;
++  const subjectsKey = allSubjects.join(",");
++  const excludeKey = likedBooks.map((b) => b.id).join(",");
++
++  useEffect(() => {
++    if (!hasSignal) {
++      return;
++    }
++
++    let cancelled = false;
++    // Standard loading-flag-before-fetch pattern, not a sync external-store
++    // read like the cases above — no useSyncExternalStore equivalent applies.
++    // eslint-disable-next-line react-hooks/set-state-in-effect
++    setLoading(true);
++
++    const params = new URLSearchParams({
++      subjects: subjectsKey,
++      exclude: excludeKey,
++    });
++
++    fetch(`/api/recommendations?${params}`)
++      .then((res) => res.json())
++      .then((data: { subject: string | null; books: BookResult[] }) => {
++        if (cancelled) return;
++        setSubject(data.subject);
++        setBooks(data.books);
++      })
++      .catch(() => {
++        if (!cancelled) {
++          setSubject(null);
++          setBooks([]);
++        }
++      })
++      .finally(() => {
++        if (!cancelled) setLoading(false);
++      });
++
++    return () => {
++      cancelled = true;
++    };
++  }, [hasSignal, subjectsKey, excludeKey]);
++
++  const status = !hasSignal
++    ? "empty"
++    : loading
++    ? "loading"
++    : books.length > 0
++    ? "ready"
++    : "empty";
++
++  return (
++    <main className="flex flex-1 flex-col items-center px-6 py-16">
++      <h1 className="text-3xl font-semibold tracking-tight text-ink">
++        Recommended for you
++      </h1>
++
++      {status === "loading" && (
++        <p className="mt-8 text-ink-muted">Finding books for you…</p>
++      )}
++
++      {status === "empty" && (
++        <p className="mt-8 max-w-md text-center text-ink-muted">
++          Like a few books or search by genre on the Browse page, and
++          recommendations will show up here based on what you&apos;re into.
++        </p>
++      )}
++
++      {status === "ready" && subject && (
++        <p className="mt-2 text-sm text-ink-muted">
++          Based on your interest in {subject}
++        </p>
++      )}
++
++      <ul className="mt-12 grid w-full max-w-4xl grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3">
++        {books.map((book) => (
++          <BookCard key={book.key} book={fromBookResult(book)} />
++        ))}
++      </ul>
++    </main>
++  );
++}
+diff --git a/src/components/BookCard.tsx b/src/components/BookCard.tsx
+new file mode 100644
+index 0000000..0c3049b
+--- /dev/null
++++ b/src/components/BookCard.tsx
+@@ -0,0 +1,42 @@
++"use client";
++
++import type { DisplayBook } from "@/lib/types";
++import { useLikedBooks } from "@/lib/likes";
++
++export function BookCard({ book }: { book: DisplayBook }) {
++  const { isLiked, toggleLike } = useLikedBooks();
++  const liked = isLiked(book.id);
++
++  return (
++    <li className="flex flex-col gap-2">
++      <div className="relative">
++        {book.coverUrl ? (
++          // eslint-disable-next-line @next/next/no-img-element
++          <img
++            src={book.coverUrl}
++            alt={`Cover of ${book.title}`}
++            className="aspect-[2/3] w-full rounded object-cover"
++          />
++        ) : (
++          <div className="flex aspect-[2/3] w-full items-center justify-center rounded border border-line bg-surface text-sm text-ink-muted">
++            No cover
++          </div>
++        )}
++        <button
++          type="button"
++          onClick={() => toggleLike(book)}
++          aria-pressed={liked}
++          aria-label={liked ? `Unlike ${book.title}` : `Like ${book.title}`}
++          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full border border-line bg-surface/90 text-lg leading-none"
++        >
++          {liked ? "♥" : "♡"}
++        </button>
++      </div>
++      <h2 className="font-medium text-ink">{book.title}</h2>
++      <p className="text-sm text-ink-muted">
++        {book.author}
++        {book.year ? ` · ${book.year}` : ""}
++      </p>
++    </li>
++  );
++}
+diff --git a/src/components/BrowseSubjectTracker.tsx b/src/components/BrowseSubjectTracker.tsx
+new file mode 100644
+index 0000000..f6c92b1
+--- /dev/null
++++ b/src/components/BrowseSubjectTracker.tsx
+@@ -0,0 +1,14 @@
++"use client";
++
++import { useEffect } from "react";
++import { recordSearchedSubject } from "@/lib/interests";
++
++export function BrowseSubjectTracker({ subject }: { subject: string }) {
++  useEffect(() => {
++    if (subject) {
++      recordSearchedSubject(subject);
++    }
++  }, [subject]);
++
++  return null;
++}
+diff --git a/src/components/Header.tsx b/src/components/Header.tsx
+index d45bde5..738501e 100644
+--- a/src/components/Header.tsx
++++ b/src/components/Header.tsx
+@@ -15,6 +15,9 @@ export function Header() {
+           <Link href="/browse" className="text-sm text-ink-muted hover:text-ink">
+             Browse
+           </Link>
++          <Link href="/recommendations" className="text-sm text-ink-muted hover:text-ink">
++            Recommendations
++          </Link>
+           <ThemeToggle />
+         </nav>
+       </div>
+diff --git a/src/components/ThemeToggle.tsx b/src/components/ThemeToggle.tsx
+index c7ce511..bc3f618 100644
+--- a/src/components/ThemeToggle.tsx
++++ b/src/components/ThemeToggle.tsx
+@@ -1,26 +1,32 @@
+ "use client";
+ 
+-import { useEffect, useState } from "react";
++import { useCallback, useSyncExternalStore } from "react";
+ 
+-export function ThemeToggle() {
+-  const [mounted, setMounted] = useState(false);
+-  const [isDark, setIsDark] = useState(false);
++function subscribe(callback: () => void) {
++  const observer = new MutationObserver(callback);
++  observer.observe(document.documentElement, {
++    attributes: true,
++    attributeFilter: ["class"],
++  });
++  return () => observer.disconnect();
++}
+ 
+-  useEffect(() => {
+-    setIsDark(document.documentElement.classList.contains("dark"));
+-    setMounted(true);
+-  }, []);
++function getSnapshot() {
++  return document.documentElement.classList.contains("dark");
++}
+ 
+-  function toggle() {
+-    const next = !isDark;
+-    setIsDark(next);
++function getServerSnapshot() {
++  return false;
++}
++
++export function ThemeToggle() {
++  const isDark = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
++
++  const toggle = useCallback(() => {
++    const next = !document.documentElement.classList.contains("dark");
+     document.documentElement.classList.toggle("dark", next);
+     localStorage.setItem("theme", next ? "dark" : "light");
+-  }
+-
+-  if (!mounted) {
+-    return <span className="inline-block h-6 w-11" aria-hidden="true" />;
+-  }
++  }, []);
+ 
+   return (
+     <button
+@@ -38,4 +44,4 @@ export function ThemeToggle() {
+       />
+     </button>
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/src/lib/interests.ts b/src/lib/interests.ts
+new file mode 100644
+index 0000000..ccff3da
+--- /dev/null
++++ b/src/lib/interests.ts
+@@ -0,0 +1,65 @@
++"use client";
++
++import { useSyncExternalStore } from "react";
++
++const STORAGE_KEY = "utc:searched-subjects";
++const MAX_ENTRIES = 20;
++const CHANGE_EVENT = "utc:interests-changed";
++
++let cachedRaw: string | null = null;
++let cachedSubjects: string[] = [];
++
++function readSearchedSubjects(): string[] {
++  if (typeof window === "undefined") return cachedSubjects;
++
++  let raw: string | null;
++  try {
++    raw = window.localStorage.getItem(STORAGE_KEY);
++  } catch {
++    raw = null;
++  }
++
++  if (raw !== cachedRaw) {
++    cachedRaw = raw;
++    try {
++      cachedSubjects = raw ? (JSON.parse(raw) as string[]) : [];
++    } catch {
++      cachedSubjects = [];
++    }
++  }
++
++  return cachedSubjects;
++}
++
++export function recordSearchedSubject(subject: string) {
++  if (typeof window === "undefined" || !subject.trim()) return;
++  const trimmed = subject.trim();
++  const existing = readSearchedSubjects();
++  const next = [trimmed, ...existing.filter((s) => s !== trimmed)].slice(
++    0,
++    MAX_ENTRIES
++  );
++  try {
++    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
++    window.dispatchEvent(new Event(CHANGE_EVENT));
++  } catch {
++    // ignore storage errors (e.g. private browsing with storage disabled)
++  }
++}
++
++function subscribe(callback: () => void) {
++  window.addEventListener(CHANGE_EVENT, callback);
++  window.addEventListener("storage", callback);
++  return () => {
++    window.removeEventListener(CHANGE_EVENT, callback);
++    window.removeEventListener("storage", callback);
++  };
++}
++
++function getServerSnapshot(): string[] {
++  return [];
++}
++
++export function useSearchedSubjects() {
++  return useSyncExternalStore(subscribe, readSearchedSubjects, getServerSnapshot);
++}
+diff --git a/src/lib/likes.ts b/src/lib/likes.ts
+new file mode 100644
+index 0000000..65829b6
+--- /dev/null
++++ b/src/lib/likes.ts
+@@ -0,0 +1,88 @@
++"use client";
++
++import { useCallback, useSyncExternalStore } from "react";
++import type { DisplayBook } from "./types";
++
++export type LikedBook = Pick<DisplayBook, "id" | "title" | "author" | "subjects">;
++
++const STORAGE_KEY = "utc:liked-books";
++const CHANGE_EVENT = "utc:likes-changed";
++
++let cachedRaw: string | null = null;
++let cachedBooks: LikedBook[] = [];
++
++function readLikedBooks(): LikedBook[] {
++  if (typeof window === "undefined") return cachedBooks;
++
++  let raw: string | null;
++  try {
++    raw = window.localStorage.getItem(STORAGE_KEY);
++  } catch {
++    raw = null;
++  }
++
++  if (raw !== cachedRaw) {
++    cachedRaw = raw;
++    try {
++      cachedBooks = raw ? (JSON.parse(raw) as LikedBook[]) : [];
++    } catch {
++      cachedBooks = [];
++    }
++  }
++
++  return cachedBooks;
++}
++
++function writeLikedBooks(books: LikedBook[]) {
++  try {
++    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
++    window.dispatchEvent(new Event(CHANGE_EVENT));
++  } catch {
++    // ignore storage errors (e.g. private browsing with storage disabled)
++  }
++}
++
++function subscribe(callback: () => void) {
++  window.addEventListener(CHANGE_EVENT, callback);
++  window.addEventListener("storage", callback);
++  return () => {
++    window.removeEventListener(CHANGE_EVENT, callback);
++    window.removeEventListener("storage", callback);
++  };
++}
++
++function getServerSnapshot(): LikedBook[] {
++  return [];
++}
++
++export function useLikedBooks() {
++  const likedBooks = useSyncExternalStore(
++    subscribe,
++    readLikedBooks,
++    getServerSnapshot
++  );
++
++  const isLiked = useCallback(
++    (id: string) => likedBooks.some((b) => b.id === id),
++    [likedBooks]
++  );
++
++  const toggleLike = useCallback((book: DisplayBook) => {
++    const current = readLikedBooks();
++    const already = current.some((b) => b.id === book.id);
++    const next = already
++      ? current.filter((b) => b.id !== book.id)
++      : [
++          ...current,
++          {
++            id: book.id,
++            title: book.title,
++            author: book.author,
++            subjects: book.subjects,
++          },
++        ];
++    writeLikedBooks(next);
++  }, []);
++
++  return { likedBooks, isLiked, toggleLike };
++}
+diff --git a/src/lib/types.ts b/src/lib/types.ts
+new file mode 100644
+index 0000000..2b78631
+--- /dev/null
++++ b/src/lib/types.ts
+@@ -0,0 +1,33 @@
++import type { Bestseller } from "./nyt";
++import type { BookResult } from "./openlibrary";
++
++export type DisplayBook = {
++  id: string;
++  title: string;
++  author: string;
++  coverUrl: string | null;
++  year?: number;
++  subjects?: string[];
++  buyUrl?: string;
++};
++
++export function fromBestseller(book: Bestseller): DisplayBook {
++  return {
++    id: `nyt-${book.rank}-${book.title}`,
++    title: book.title,
++    author: book.author,
++    coverUrl: book.coverImage || null,
++    buyUrl: book.buyUrl,
++  };
++}
++
++export function fromBookResult(book: BookResult): DisplayBook {
++  return {
++    id: book.key,
++    title: book.title,
++    author: book.author,
++    coverUrl: book.coverUrl,
++    year: book.firstPublishYear,
++    subjects: book.subjects,
++  };
++}

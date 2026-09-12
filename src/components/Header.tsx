@@ -15,6 +15,9 @@ export function Header() {
           <Link href="/browse" className="text-sm text-ink-muted hover:text-ink">
             Browse
           </Link>
+          <Link href="/recommendations" className="text-sm text-ink-muted hover:text-ink">
+            Recommendations
+          </Link>
           <ThemeToggle />
         </nav>
       </div>
