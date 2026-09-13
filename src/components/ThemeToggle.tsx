@@ -2,6 +2,25 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 
+// The beforeInteractive theme-init script in layout.tsx runs correctly
+// during SSR, but React 19 warns about any <script> tag rendered through a
+// component tree, without distinguishing that from a script that will
+// genuinely never run — a known false positive with Next.js 16.2+/Turbopack
+// (see https://github.com/shadcn-ui/ui/issues/10104). Dev-only, and only
+// this one specific message is filtered.
+if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+  const originalError = console.error;
+  console.error = (...args: unknown[]) => {
+    if (
+      typeof args[0] === "string" &&
+      args[0].includes("Encountered a script tag")
+    ) {
+      return;
+    }
+    originalError.apply(console, args);
+  };
+}
+
 function subscribe(callback: () => void) {
   const observer = new MutationObserver(callback);
   observer.observe(document.documentElement, {
