@@ -56,8 +56,10 @@ function subscribe(callback: () => void) {
   };
 }
 
+const EMPTY_SUBJECTS: string[] = [];
+
 function getServerSnapshot(): string[] {
-  return [];
+  return EMPTY_SUBJECTS;
 }
 
 export function useSearchedSubjects() {

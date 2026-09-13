@@ -51,8 +51,10 @@ function subscribe(callback: () => void) {
   };
 }
 
+const EMPTY_LIKED_BOOKS: LikedBook[] = [];
+
 function getServerSnapshot(): LikedBook[] {
-  return [];
+  return EMPTY_LIKED_BOOKS;
 }
 
 export function useLikedBooks() {
