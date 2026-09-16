@@ -1,0 +1,92 @@
+diff --git a/src/components/BookCard.tsx b/src/components/BookCard.tsx
+index 0c3049b..fc8523a 100644
+--- a/src/components/BookCard.tsx
++++ b/src/components/BookCard.tsx
+@@ -37,6 +37,21 @@ export function BookCard({ book }: { book: DisplayBook }) {
+         {book.author}
+         {book.year ? ` · ${book.year}` : ""}
+       </p>
++      {book.buyLinks && book.buyLinks.length > 0 && (
++        <div className="flex flex-wrap gap-x-3 gap-y-1">
++          {book.buyLinks.map((link) => (
++            <a
++              key={link.name}
++              href={link.url}
++              target="_blank"
++              rel="noopener noreferrer"
++              className="text-xs text-accent-lavender hover:underline"
++            >
++              {link.name}
++            </a>
++          ))}
++        </div>
++      )}
+     </li>
+   );
+ }
+diff --git a/src/lib/nyt.ts b/src/lib/nyt.ts
+index 23fe356..cc62a07 100644
+--- a/src/lib/nyt.ts
++++ b/src/lib/nyt.ts
+@@ -1,10 +1,15 @@
++export type BuyLink = {
++  name: string;
++  url: string;
++};
++
+ export type Bestseller = {
+   rank: number;
+   title: string;
+   author: string;
+   description: string;
+   coverImage: string;
+-  buyUrl: string;
++  buyLinks: BuyLink[];
+ };
+ 
+ export async function getBestsellers(
+@@ -33,13 +38,13 @@ export async function getBestsellers(
+     author: string;
+     description: string;
+     book_image: string;
+-    amazon_product_url: string;
++    buy_links: BuyLink[];
+   }) => ({
+     rank: book.rank,
+     title: book.title,
+     author: book.author,
+     description: book.description,
+     coverImage: book.book_image,
+-    buyUrl: book.amazon_product_url,
++    buyLinks: book.buy_links ?? [],
+   }));
+ }
+\ No newline at end of file
+diff --git a/src/lib/types.ts b/src/lib/types.ts
+index 2b78631..9945223 100644
+--- a/src/lib/types.ts
++++ b/src/lib/types.ts
+@@ -1,4 +1,4 @@
+-import type { Bestseller } from "./nyt";
++import type { Bestseller, BuyLink } from "./nyt";
+ import type { BookResult } from "./openlibrary";
+ 
+ export type DisplayBook = {
+@@ -8,7 +8,7 @@ export type DisplayBook = {
+   coverUrl: string | null;
+   year?: number;
+   subjects?: string[];
+-  buyUrl?: string;
++  buyLinks?: BuyLink[];
+ };
+ 
+ export function fromBestseller(book: Bestseller): DisplayBook {
+@@ -17,7 +17,7 @@ export function fromBestseller(book: Bestseller): DisplayBook {
+     title: book.title,
+     author: book.author,
+     coverUrl: book.coverImage || null,
+-    buyUrl: book.buyUrl,
++    buyLinks: book.buyLinks,
+   };
+ }
+ 

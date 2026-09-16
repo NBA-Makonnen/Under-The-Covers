@@ -37,6 +37,21 @@ export function BookCard({ book }: { book: DisplayBook }) {
         {book.author}
         {book.year ? ` · ${book.year}` : ""}
       </p>
+      {book.buyLinks && book.buyLinks.length > 0 && (
+        <div className="flex flex-wrap gap-x-3 gap-y-1">
+          {book.buyLinks.map((link) => (
+            <a
+              key={link.name}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-accent-lavender hover:underline"
+            >
+              {link.name}
+            </a>
+          ))}
+        </div>
+      )}
     </li>
   );
 }

@@ -1,10 +1,15 @@
+export type BuyLink = {
+  name: string;
+  url: string;
+};
+
 export type Bestseller = {
   rank: number;
   title: string;
   author: string;
   description: string;
   coverImage: string;
-  buyUrl: string;
+  buyLinks: BuyLink[];
 };
 
 export async function getBestsellers(
@@ -33,13 +38,13 @@ export async function getBestsellers(
     author: string;
     description: string;
     book_image: string;
-    amazon_product_url: string;
+    buy_links: BuyLink[];
   }) => ({
     rank: book.rank,
     title: book.title,
     author: book.author,
     description: book.description,
     coverImage: book.book_image,
-    buyUrl: book.amazon_product_url,
+    buyLinks: book.buy_links ?? [],
   }));
 }

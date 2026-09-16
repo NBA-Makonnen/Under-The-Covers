@@ -1,4 +1,4 @@
-import type { Bestseller } from "./nyt";
+import type { Bestseller, BuyLink } from "./nyt";
 import type { BookResult } from "./openlibrary";
 
 export type DisplayBook = {
@@ -8,7 +8,7 @@ export type DisplayBook = {
   coverUrl: string | null;
   year?: number;
   subjects?: string[];
-  buyUrl?: string;
+  buyLinks?: BuyLink[];
 };
 
 export function fromBestseller(book: Bestseller): DisplayBook {
@@ -17,7 +17,7 @@ export function fromBestseller(book: Bestseller): DisplayBook {
     title: book.title,
     author: book.author,
     coverUrl: book.coverImage || null,
-    buyUrl: book.buyUrl,
+    buyLinks: book.buyLinks,
   };
 }
 
