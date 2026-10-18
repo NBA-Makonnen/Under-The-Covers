@@ -1,4 +1,4 @@
-import { searchBooks } from "@/lib/openlibrary";
+import { searchBooks, type BookResult } from "@/lib/openlibrary";
 import { BookCard } from "@/components/BookCard";
 import { BrowseSubjectTracker } from "@/components/BrowseSubjectTracker";
 import { fromBookResult } from "@/lib/types";
@@ -15,9 +15,15 @@ export default async function Browse({
   const year = typeof params.year === "string" ? params.year : "";
 
   const hasFilters = query || author || subject || year;
-  const books = hasFilters
-    ? await searchBooks({ query, author, subject, year })
-    : [];
+  let books: BookResult[] = [];
+  let failed = false;
+  if (hasFilters) {
+    try {
+      books = await searchBooks({ query, author, subject, year });
+    } catch {
+      failed = true;
+    }
+  }
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-16">
@@ -61,7 +67,14 @@ export default async function Browse({
         </button>
       </form>
 
-      {hasFilters && books.length === 0 && (
+      {failed && (
+        <p className="mt-8 text-ink-muted" role="alert">
+          Couldn&apos;t reach Open Library right now. Please try again in a
+          moment.
+        </p>
+      )}
+
+      {hasFilters && !failed && books.length === 0 && (
         <p className="mt-8 text-ink-muted">
           No results. Try different filters.
         </p>

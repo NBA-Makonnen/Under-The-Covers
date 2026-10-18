@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchBooks } from "@/lib/openlibrary";
+import { searchBooks, type BookResult } from "@/lib/openlibrary";
 
 function pickTopSubject(subjects: string[]): string | null {
   const counts = new Map<string, number>();
@@ -44,7 +44,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ subject: null, books: [] });
   }
 
-  const results = await searchBooks({ subject: topSubject });
+  let results: BookResult[];
+  try {
+    results = await searchBooks({ subject: topSubject });
+  } catch {
+    return NextResponse.json({ subject: null, books: [] }, { status: 502 });
+  }
   const books = results.filter((book) => !exclude.has(book.key));
 
   return NextResponse.json({ subject: topSubject, books });

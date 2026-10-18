@@ -14,6 +14,36 @@ type SearchParams = {
   year?: string;
 };
 
+export class OpenLibraryError extends Error {}
+
+async function fetchWithRetry(url: string): Promise<Response> {
+  const options = {
+    next: { revalidate: 3600 },
+    signal: AbortSignal.timeout(15_000),
+    headers: {
+      "User-Agent": "Under-The-Covers/0.1 (bundamulima@gmail.com)",
+    },
+  };
+
+  try {
+    const res = await fetch(url, options);
+    if (res.status < 500) return res;
+  } catch {
+    // network error or timeout: fall through and retry once
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    throw new OpenLibraryError("Could not reach Open Library");
+  }
+}
+
 export async function searchBooks({
   query,
   author,
@@ -37,15 +67,12 @@ export async function searchBooks({
     fields: "key,title,author_name,first_publish_year,subject,cover_i",
   });
 
-    const res = await fetch(`https://openlibrary.org/search.json?${params}`, {
-    next: { revalidate: 3600 },
-    headers: {
-      "User-Agent": "Under-The-Covers/0.1 (bundamulima@gmail.com)",
-    },
-  });
+  const res = await fetchWithRetry(
+    `https://openlibrary.org/search.json?${params}`
+  );
 
   if (!res.ok) {
-    throw new Error(`Open Library API error: ${res.status}`);
+    throw new OpenLibraryError(`Open Library API error: ${res.status}`);
   }
 
   const data = await res.json();
