@@ -21,6 +21,16 @@ export function fromBestseller(book: Bestseller): DisplayBook {
   };
 }
 
+function searchLinks(book: BookResult): BuyLink[]  {
+  const query = encodeURIComponent(`${book.title} ${book.author}`);
+  return [
+    { name: "Open Library", url: `https://openlibrary.org${book.key}` },
+    { name: "Amazon", url: `https://www.amazon.com/s?k=${query}&i=stripbooks` },
+    { name: "Bookshop.org", url: `https://bookshop.org/search?keywords=${query}` },
+    { name: "Google Books", url: `https://www.google.com/books?q=${query}` },
+  ];
+}
+
 export function fromBookResult(book: BookResult): DisplayBook {
   return {
     id: book.key,
@@ -29,5 +39,6 @@ export function fromBookResult(book: BookResult): DisplayBook {
     coverUrl: book.coverUrl,
     year: book.firstPublishYear,
     subjects: book.subjects,
+    buyLinks: searchLinks(book),
   };
 }
