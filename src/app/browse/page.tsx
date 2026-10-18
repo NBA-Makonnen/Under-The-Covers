@@ -30,39 +30,39 @@ export default async function Browse({
           name="q"
           defaultValue={query}
           placeholder="Search by title or keyword"
-          className="flex-1 rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+          className="flex-1 rounded border border-line bg-surface px-3 py-2 text-ink placeholder:text-ink-muted focus-visible:outline-2 focus-visible:outline-brand"
         />
         <input
           type="text"
           name="author"
           defaultValue={author}
           placeholder="Author"
-          className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+          className="rounded border border-line bg-surface px-3 py-2 text-ink placeholder:text-ink-muted focus-visible:outline-2 focus-visible:outline-brand"
         />
         <input
           type="text"
           name="subject"
           defaultValue={subject}
           placeholder="Genre / subject"
-          className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+          className="rounded border border-line bg-surface px-3 py-2 text-ink placeholder:text-ink-muted focus-visible:outline-2 focus-visible:outline-brand"
         />
         <input
           type="number"
           name="year"
           defaultValue={year}
           placeholder="Year"
-          className="w-28 rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-28 rounded border border-line bg-surface px-3 py-2 text-ink placeholder:text-ink-muted focus-visible:outline-2 focus-visible:outline-brand"
         />
         <button
           type="submit"
-          className="rounded bg-zinc-900 px-4 py-2 text-white dark:bg-white dark:text-zinc-900"
+          className="rounded bg-brand px-4 py-2 text-white hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
           Search
         </button>
       </form>
 
       {hasFilters && books.length === 0 && (
-        <p className="mt-8 text-zinc-600 dark:text-zinc-400">
+        <p className="mt-8 text-ink-muted">
           No results. Try different filters.
         </p>
       )}

@@ -8,10 +8,10 @@ export default async function Home() {
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-16">
       <h1 className="text-4xl font-semibold tracking-tight">Under The Covers</h1>
-          <a href="/browse" className="mt-2 text-sm underline text-zinc-600 dark:text-zinc-400">
+          <a href="/browse" className="mt-2 text-sm text-accent-lavender underline">
               Browse &amp; filter →
           </a>
-      <p className="mt-4 max-w-md text-center text-zinc-600 dark:text-zinc-400">
+      <p className="mt-4 max-w-md text-center text-ink-muted">
         Discover what&apos;s popular right now, filter by genre, year, or
         author, and get recommendations based on what you like.
       </p>
